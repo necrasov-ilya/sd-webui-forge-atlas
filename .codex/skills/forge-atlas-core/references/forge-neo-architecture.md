@@ -68,11 +68,17 @@ Info, Checkpoint Merger, Settings, and Extensions. It appends tuples returned by
 inside the root `gr.Tabs(elem_id="tabs")`.
 
 The root block uses `shared.gradio_theme`. `modules.shared_gradio_themes.reload_gradio_theme()`
-loads the default or cached Hub theme. `modules.ui_gradio_extensions` injects:
+builds the single local Forge Atlas theme. External Hub themes are intentionally disabled.
+`modules.ui_gradio_extensions` injects:
 
 - root and extension `javascript/*.js` and `javascript/*.mjs`;
 - every root/extension `style.css`;
+- `atlas-theme.css` after upstream/extension styles;
 - optional data-path `user.css`.
+
+`user.css` remains last so local user overrides win. Forge Atlas defaults to dark mode via
+`set_theme("dark")`; both light and dark token sets intentionally render the same Atlas dark
+palette so old URLs/config values cannot restore an obsolete external theme.
 
 `modules.gradio_extensions` patches Gradio 4.40.0 component construction. It adds a
 `gradio-<block-name>` class and invokes global and current-script before/after component

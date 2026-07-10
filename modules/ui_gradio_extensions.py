@@ -23,8 +23,8 @@ def javascript_html():
     for script in scripts.list_scripts("javascript", ".mjs"):
         head += f'<script type="module" src="{webpath(script.path)}"></script>\n'
 
-    if shared.cmd_opts.theme:
-        head += f'<script type="text/javascript">set_theme("{shared.cmd_opts.theme}");</script>\n'
+    theme_mode = shared.cmd_opts.theme or "dark"
+    head += f'<script type="text/javascript">set_theme("{theme_mode}");</script>\n'
 
     return head
 
@@ -37,6 +37,10 @@ def css_html():
 
     for cssfile in scripts.list_files_with_name("style.css"):
         head += stylesheet(cssfile)
+
+    atlas_css = os.path.join(script_path, "atlas-theme.css")
+    if os.path.exists(atlas_css):
+        head += stylesheet(atlas_css)
 
     user_css = os.path.join(data_path, "user.css")
     if os.path.exists(user_css):
