@@ -1,0 +1,4 @@
+interface:
+  display_name: "Forge Atlas Large Upscale"
+  short_description: "Build safe ultra-large tiled upscale workflows"
+  default_prompt: "Use $forge-atlas-large-upscale to improve the ultra-large image workflow."

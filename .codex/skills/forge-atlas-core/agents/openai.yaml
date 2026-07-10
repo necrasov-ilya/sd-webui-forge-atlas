@@ -1,0 +1,4 @@
+interface:
+  display_name: "Forge Atlas Core"
+  short_description: "Guardrails for safe Forge Atlas changes"
+  default_prompt: "Use $forge-atlas-core to implement a change while preserving Forge Neo architecture."

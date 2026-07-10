@@ -1,0 +1,4 @@
+interface:
+  display_name: "Forge Atlas Model Integration"
+  short_description: "Research and integrate diffusion model families"
+  default_prompt: "Use $forge-atlas-model-integration to evaluate and integrate a new model family."

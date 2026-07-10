@@ -1,0 +1,4 @@
+interface:
+  display_name: "Forge Atlas Install Support"
+  short_description: "Simplify installation and diagnose environments"
+  default_prompt: "Use $forge-atlas-install-support to improve installation or diagnose setup problems."
