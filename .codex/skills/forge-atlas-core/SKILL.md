@@ -5,6 +5,10 @@ description: Implement or review general Forge Atlas changes while preserving th
 
 # Forge Atlas Core
 
+Read `references/forge-neo-architecture.md` before changing startup, Gradio composition,
+scripts/callbacks, processing, model selection/loading, Extras, saving, or APIs. Re-audit the
+affected path when `upstream/neo` has moved beyond the revision recorded there.
+
 ## Workflow
 
 1. Read the root `AGENTS.md` and inspect the working tree before acting.
