@@ -140,6 +140,46 @@ body {
         box-shadow 140ms ease;
 }
 
+#atlas_model_library_dialog {
+    position: fixed !important;
+    z-index: 10000 !important;
+    inset: 0 !important;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(8, 6, 10, 0.82) !important;
+    backdrop-filter: blur(10px);
+}
+
+#atlas_model_library_card {
+    flex: 0 0 auto !important;
+    align-self: center;
+    width: min(100%, 42rem);
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 1.6rem;
+    border: 1px solid rgba(244, 239, 246, 0.08) !important;
+    border-radius: 18px !important;
+    background: var(--atlas-surface-2) !important;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45) !important;
+}
+
+#atlas_model_library_card h2 {
+    margin: 0 0 0.45rem;
+}
+
+#atlas_model_library_card p {
+    margin: 0 0 1.25rem;
+    color: var(--atlas-text-muted);
+}
+
+#atlas_model_library_status {
+    flex: 0 0 3.5rem;
+    height: 3.5rem;
+    min-height: 3.5rem;
+    overflow-y: auto;
+}
+
 @media (hover: hover) {
     .gradio-container .gradio-button:hover,
     .gradio-container button.custom-button:hover {

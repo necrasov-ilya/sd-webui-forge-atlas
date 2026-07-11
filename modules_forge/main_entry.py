@@ -83,7 +83,7 @@ def make_checkpoint_manager_ui():
 
 def find_files_with_extensions(base_path: os.PathLike, extensions: list[str]) -> dict[str, os.PathLike]:
     found_files = {}
-    for root, _, files in os.walk(base_path):
+    for root, _, files in os.walk(base_path, followlinks=True):
         for file in files:
             if any(file.endswith(ext) for ext in extensions):
                 full_path = os.path.join(root, file)

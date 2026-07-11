@@ -22,7 +22,7 @@ from modules.shared import cmd_opts, opts
 from modules.ui_common import create_refresh_button  # noqa: F401
 from modules.ui_components import FormGroup, FormHTML, FormRow, InputAccordion, ResizeHandleRow, ToolButton
 from modules.ui_gradio_extensions import reload_javascript
-from modules_forge import main_entry
+from modules_forge import main_entry, model_library
 from modules_forge.forge_canvas.canvas import ForgeCanvas, canvas_head
 
 create_setting_component = ui_settings.create_setting_component
@@ -887,6 +887,7 @@ def create_ui():
         shared.tab_names.append(label)
 
     with gr.Blocks(theme=shared.gradio_theme, analytics_enabled=False, title="Stable Diffusion", head=canvas_head) as demo:
+        model_library_dialog = model_library.create_startup_dialog()
         settings.add_quicksettings()
 
         parameters_copypaste.connect_paste_params_buttons()
@@ -922,6 +923,12 @@ def create_ui():
         demo.load(fn=update_image_cfg_scale_visibility, outputs=[image_cfg_scale])
 
         modelmerger_ui.setup_ui(dummy_component=dummy_component, sd_model_checkpoint_component=main_entry.ui_checkpoint)
+
+        model_library.bind_startup_dialog(
+            dialog=model_library_dialog,
+            checkpoint_dropdown=main_entry.ui_checkpoint,
+            modules_dropdown=main_entry.ui_vae,
+        )
 
         main_entry.forge_main_entry()
 
