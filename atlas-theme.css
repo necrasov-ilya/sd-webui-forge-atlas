@@ -69,6 +69,65 @@ body {
     box-shadow: var(--atlas-focus) !important;
 }
 
+/* Dropdowns use a single, slightly lighter picker surface. Gradio applies focus
+   decoration to the nested search input, which otherwise creates a smaller ring
+   that does not match the visible picker shape. */
+.gradio-container .gradio-dropdown .wrap,
+.gradio-container .gradio-dropdown .wrap-inner,
+.gradio-container .gradio-dropdown input {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+}
+
+.gradio-container .gradio-dropdown .wrap {
+    background: var(--atlas-surface-3) !important;
+    transition:
+        background-color 140ms ease,
+        box-shadow 140ms ease;
+}
+
+.gradio-container .gradio-dropdown input {
+    background: transparent !important;
+}
+
+.gradio-container .gradio-dropdown .wrap:hover,
+.gradio-container .gradio-dropdown .wrap:focus-within {
+    background: #2d2531 !important;
+}
+
+.gradio-container .gradio-dropdown input:focus,
+.gradio-container .gradio-dropdown input:focus-visible {
+    outline: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Number and text fields have the same nested-input structure as dropdowns.
+   Keep focus feedback on their complete visible surface instead of a clipped
+   shadow on the inner input. */
+.gradio-container .gradio-number .wrap,
+.gradio-container .gradio-textbox .wrap {
+    background: var(--atlas-surface-3) !important;
+    transition: background-color 140ms ease;
+}
+
+.gradio-container .gradio-number .wrap:hover,
+.gradio-container .gradio-number .wrap:focus-within,
+.gradio-container .gradio-textbox .wrap:hover,
+.gradio-container .gradio-textbox .wrap:focus-within {
+    background: #2d2531 !important;
+}
+
+.gradio-container .gradio-number input:focus,
+.gradio-container .gradio-number input:focus-visible,
+.gradio-container .gradio-textbox input:focus,
+.gradio-container .gradio-textbox input:focus-visible,
+.gradio-container .gradio-textbox textarea:focus,
+.gradio-container .gradio-textbox textarea:focus-visible {
+    outline: 0 !important;
+    box-shadow: none !important;
+}
+
 .gradio-container .gradio-button,
 .gradio-container button.custom-button {
     border: 0 !important;
