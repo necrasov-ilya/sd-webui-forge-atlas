@@ -15,7 +15,7 @@ $UvLocal = Join-Path $UvDir "uv.exe"
 $PythonDir = Join-Path $ToolsDir "python"
 $VenvDir = Join-Path $Root "venv"
 $VenvPython = Join-Path $VenvDir "Scripts\python.exe"
-$PythonVersion = "3.13.12"
+$PythonVersion = "3.13"
 
 function Write-AtlasStep {
     param([string]$Message)
@@ -117,10 +117,16 @@ try {
             $env:UV_PYTHON_INSTALL_DIR = $PythonDir
             $env:UV_CACHE_DIR = Join-Path $Root ".uv-cache"
 
-            Write-AtlasStep "Создаю виртуальное окружение venv. При необходимости uv сначала скачает Python."
+            Write-AtlasStep "Загружаю локальный Python $PythonVersion, если он ещё не установлен."
             Invoke-Checked `
                 -Program $UvPath `
-                -Arguments @("venv", $VenvDir, "--python", $PythonVersion, "--seed") `
+                -Arguments @("python", "install", $PythonVersion, "--no-bin", "--no-registry") `
+                -FailureMessage "Не удалось подготовить локальный Python $PythonVersion."
+
+            Write-AtlasStep "Создаю виртуальное окружение venv из локального Python."
+            Invoke-Checked `
+                -Program $UvPath `
+                -Arguments @("venv", $VenvDir, "--python", $PythonVersion, "--managed-python", "--seed") `
                 -FailureMessage "Не удалось создать виртуальное окружение."
 
             if (-not (Test-Path -LiteralPath $VenvPython)) {
@@ -154,6 +160,7 @@ catch {
     Write-Host ""
     Write-Host "[Forge Atlas] Ошибка подготовки окружения:" -ForegroundColor Red
     Write-Host "[Forge Atlas] $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "[Forge Atlas] Проверьте подключение к интернету и свободное место на диске."
+    Write-Host "[Forge Atlas] Причина обычно указана несколькими строками выше."
+    Write-Host "[Forge Atlas] Проверьте это сообщение, подключение к интернету и свободное место на диске."
     exit 1
 }
