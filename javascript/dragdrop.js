@@ -72,7 +72,8 @@ window.document.addEventListener("drop", async (e) => {
         e.stopPropagation();
         e.preventDefault();
 
-        const isImg2img = get_tab_index("tabs") == 1;
+        const classicImg2img = gradioApp().getElementById("tab_img2img");
+        const isImg2img = classicImg2img && uiElementIsVisible(classicImg2img);
         const prompt_image_target = isImg2img ? "img2img_prompt_image" : "txt2img_prompt_image";
 
         const imgParent = gradioApp().getElementById(prompt_image_target);

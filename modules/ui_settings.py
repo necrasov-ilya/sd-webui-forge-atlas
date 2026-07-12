@@ -293,10 +293,13 @@ class UiSettings:
 
         self.interface = settings_interface
 
-    def add_quicksettings(self):
+    def add_quicksettings(self, include_model_manager=True):
+        if not include_model_manager and not self.quicksettings_list:
+            return None
         with gr.Accordion(label="Quicksettings", open=not opts.quicksettings_accordion_starts_closed) if opts.quicksettings_accordion else nullcontext():
             with gr.Row(elem_id="quicksettings", variant="compact") as quicksettings_row:
-                main_entry.make_checkpoint_manager_ui()
+                if include_model_manager:
+                    main_entry.make_checkpoint_manager_ui()
                 for _i, k, _item in sorted(self.quicksettings_list, key=lambda x: self.quicksettings_names.get(x[1], x[0])):
                     component = create_setting_component(k, is_quicksettings=True)
                     self.component_dict[k] = component

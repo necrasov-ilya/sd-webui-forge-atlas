@@ -22,7 +22,7 @@ from modules.shared import cmd_opts, opts
 from modules.ui_common import create_refresh_button  # noqa: F401
 from modules.ui_components import FormGroup, FormHTML, FormRow, InputAccordion, ResizeHandleRow, ToolButton
 from modules.ui_gradio_extensions import reload_javascript
-from modules_forge import main_entry, model_library
+from modules_forge import atlas_ui, main_entry, model_library
 from modules_forge.forge_canvas.canvas import ForgeCanvas, canvas_head
 
 create_setting_component = ui_settings.create_setting_component
@@ -830,6 +830,27 @@ def create_ui():
 
     scripts.scripts_current = None
 
+    atlas_upscale_workspace, atlas_upscale_components = atlas_ui.create_upscale_workspace()
+    with gr.Blocks(analytics_enabled=False) as atlas_model_manager:
+        with gr.Group(elem_classes=["atlas-card", "atlas-model-manager"]):
+            gr.Markdown("### Модель\n\nВыбери checkpoint с Civitai. Atlas определит тип и покажет только обязательные VAE и text encoder, которых не хватает.")
+            main_entry.make_checkpoint_manager_ui()
+    with gr.Blocks(analytics_enabled=False) as atlas_txt2img_model_manager:
+        with gr.Group(elem_classes=["atlas-card", "atlas-model-manager"]):
+            gr.Markdown("### Модель")
+            atlas_txt2img_model_components = main_entry.make_checkpoint_manager_mirror_ui()
+    with gr.Blocks(analytics_enabled=False) as atlas_txt2img_interface:
+        atlas_txt2img_model_manager.render()
+        txt2img_interface.render()
+    with gr.Blocks(analytics_enabled=False) as improve_interface:
+        atlas_model_manager.render()
+        default_improve_mode = "classic" if shared.opts.atlas_default_upscale_mode == "Классический img2img" else "improve"
+        with gr.Tabs(selected=default_improve_mode, elem_id="atlas_improve_modes"):
+            with gr.Tab("Улучшение изображения", id="improve", elem_id="tab_atlas_upscale_main"):
+                atlas_upscale_workspace.render()
+            with gr.Tab("Классический img2img", id="classic", elem_id="tab_img2img", visible=shared.opts.atlas_show_classic_img2img and "img2img" not in shared.opts.hidden_tabs):
+                img2img_interface.render()
+
     with gr.Blocks(analytics_enabled=False) as extras_interface:
         ui_postprocessing.create_ui()
 
@@ -863,17 +884,23 @@ def create_ui():
 
     modelmerger_ui = ui_checkpoint_merger.UiCheckpointMerger()
 
+    with gr.Blocks(analytics_enabled=False) as tools_interface:
+        with gr.Tabs(elem_id="atlas_tools_modes"):
+            with gr.Tab("PNG Info", id="pnginfo"):
+                pnginfo_interface.render()
+            with gr.Tab("Checkpoint Merger", id="modelmerger"):
+                modelmerger_ui.blocks.render()
+
     loadsave = ui_loadsave.UiLoadsave(cmd_opts.ui_config_file)
     ui_settings_from_file = loadsave.ui_settings.copy()
 
     settings.create_ui(loadsave, dummy_component)
 
     interfaces = [
-        (txt2img_interface, "txt2img", "txt2img"),
-        (img2img_interface, "img2img", "img2img"),
+        (improve_interface, "Улучшение", "upscale"),
+        (atlas_txt2img_interface, "txt2img", "txt2img"),
         (extras_interface, "Extras", "extras"),
-        (pnginfo_interface, "PNG Info", "pnginfo"),
-        (modelmerger_ui.blocks, "Checkpoint Merger", "modelmerger"),
+        (tools_interface, "Инструменты", "tools"),
     ]
 
     interfaces += script_callbacks.ui_tabs_callback()
@@ -888,13 +915,14 @@ def create_ui():
 
     with gr.Blocks(theme=shared.gradio_theme, analytics_enabled=False, title="Stable Diffusion", head=canvas_head) as demo:
         model_library_dialog = model_library.create_startup_dialog()
-        settings.add_quicksettings()
+        settings.add_quicksettings(include_model_manager=False)
 
         parameters_copypaste.connect_paste_params_buttons()
 
         with gr.Tabs(elem_id="tabs") as tabs:
-            tab_order = {k: i for i, k in enumerate(opts.ui_tab_order)}
-            sorted_interfaces = sorted(interfaces, key=lambda x: tab_order.get(x[1], 9999))
+            atlas_tab_order = {"Улучшение": 0, "txt2img": 1, "Extras": 2, "Инструменты": 3, "Settings": 5, "Extensions": 6}
+            custom_order = {k: i for i, k in enumerate(opts.ui_tab_order)}
+            sorted_interfaces = sorted(interfaces, key=lambda x: (atlas_tab_order.get(x[1], 5), custom_order.get(x[1], 9999)))
 
             for interface, label, ifid in sorted_interfaces:
                 if label in shared.opts.hidden_tabs:
@@ -902,7 +930,15 @@ def create_ui():
                 with gr.TabItem(label, id=ifid, elem_id=f"tab_{ifid}"):
                     interface.render()
 
-                if ifid not in ["extensions", "settings"]:
+                if ifid == "upscale":
+                    loadsave.add_block(atlas_upscale_workspace, "upscale")
+                    loadsave.add_block(img2img_interface, "img2img")
+                elif ifid == "txt2img":
+                    loadsave.add_block(txt2img_interface, "txt2img")
+                elif ifid == "tools":
+                    loadsave.add_block(pnginfo_interface, "pnginfo")
+                    loadsave.add_block(modelmerger_ui.blocks, "modelmerger")
+                elif ifid not in ["extensions", "settings"]:
                     loadsave.add_block(interface, ifid)
 
             loadsave.add_component(f"webui/Tabs@{tabs.elem_id}", tabs)
@@ -931,6 +967,8 @@ def create_ui():
         )
 
         main_entry.forge_main_entry()
+        main_entry.bind_checkpoint_manager_mirror(atlas_txt2img_model_components)
+        atlas_ui.bind_global_model_state(atlas_upscale_components, main_entry.ui_checkpoint, main_entry.ui_vae, main_entry.ui_forge_preset)
 
     if ui_settings_from_file != loadsave.ui_settings:
         loadsave.dump_defaults()

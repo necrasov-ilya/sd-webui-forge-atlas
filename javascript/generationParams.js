@@ -21,9 +21,10 @@ onAfterUiUpdate(function () {
 
 let modalObserver = new MutationObserver(function (mutations) {
     mutations.forEach(function (mutationRecord) {
-        let selectedTab = gradioApp().querySelector(
-            "#tabs div button.selected",
-        )?.innerText;
+        const classicImg2img = gradioApp().getElementById("tab_img2img");
+        let selectedTab = classicImg2img && uiElementIsVisible(classicImg2img)
+            ? "img2img"
+            : gradioApp().querySelector("#tabs > .tab-nav > button.selected")?.innerText;
         if (
             mutationRecord.target.style.display === "none" &&
             (selectedTab === "txt2img" || selectedTab === "img2img")
