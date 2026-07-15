@@ -10,6 +10,8 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $Root = $PSScriptRoot
 $RepairDir = Join-Path $Root "tmp\atlas-repair"
 $AtlasOriginPattern = "(?i)github\.com[:/]necrasov-ilya/sd-webui-forge-atlas(?:\.git)?/?$"
+$AtlasLinkName = "Atlas Library"
+$AtlasModelFolders = @("Stable-diffusion", "VAE", "text_encoder", "Lora", "ESRGAN", "ControlNet", "embeddings")
 $ProtectedPaths = @(
     "models/.forge-atlas-protected",
     "outputs/.forge-atlas-protected",
@@ -46,6 +48,54 @@ function Invoke-GitChecked {
     }
 }
 
+function Get-AtlasResetTargets {
+    $Targets = @()
+    foreach ($Folder in $AtlasModelFolders) {
+        $Targets += Join-Path $Root ("models\{0}\{1}" -f $Folder, $AtlasLinkName)
+    }
+    return $Targets
+}
+
+function Remove-AtlasLibraryLinks {
+    $Removed = 0
+    foreach ($LinkPath in (Get-AtlasResetTargets)) {
+        $Item = Get-Item -LiteralPath $LinkPath -Force -ErrorAction SilentlyContinue
+        if ($null -eq $Item) {
+            continue
+        }
+
+        $IsLink = ($Item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+        if ($IsLink) {
+            Remove-Item -LiteralPath $LinkPath -Force
+            $Removed++
+            continue
+        }
+
+        $HasContents = $null -ne (Get-ChildItem -LiteralPath $LinkPath -Force | Select-Object -First 1)
+        if (-not $HasContents) {
+            Remove-Item -LiteralPath $LinkPath -Force
+            $Removed++
+        }
+        else {
+            Write-Host "[Forge Atlas] Пропускаю '$LinkPath': это непустая обычная папка, а не ссылка Atlas." -ForegroundColor Yellow
+        }
+    }
+    return $Removed
+}
+
+function Remove-AtlasVenv {
+    $VenvPath = [System.IO.Path]::GetFullPath((Join-Path $Root "venv"))
+    $ExpectedPath = [System.IO.Path]::GetFullPath("$Root\venv")
+    if ($VenvPath -ne $ExpectedPath -or -not $VenvPath.StartsWith("$([System.IO.Path]::GetFullPath($Root))\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Небезопасный путь виртуального окружения: '$VenvPath'. Удаление отменено."
+    }
+    if (Test-Path -LiteralPath $VenvPath) {
+        Remove-Item -LiteralPath $VenvPath -Recurse -Force
+        return $true
+    }
+    return $false
+}
+
 try {
     Set-Location -LiteralPath $Root
 
@@ -75,7 +125,7 @@ try {
             throw "Путь '$Path' не защищён правилами .gitignore. Очистка отменена."
         }
     }
-    Write-AtlasOk "Модели, outputs, настройки, расширения и окружение защищены."
+    Write-AtlasOk "Модели, outputs, настройки, расширения и локальные инструменты защищены. venv будет создан заново."
 
     $CurrentCommit = (& git rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0) {
@@ -96,6 +146,9 @@ try {
         else {
             Write-Host "[Forge Atlas] Рабочая папка уже чистая."
         }
+        $ExistingLinks = @((Get-AtlasResetTargets) | Where-Object { $null -ne (Get-Item -LiteralPath $_ -Force -ErrorAction SilentlyContinue) })
+        Write-Host "[Forge Atlas] Reset удалит служебных ссылок/пустых каталогов Atlas Library: $($ExistingLinks.Count)."
+        Write-Host "[Forge Atlas] Reset удалит venv: $(if (Test-Path -LiteralPath (Join-Path $Root 'venv')) { 'да' } else { 'нет' })."
         Write-AtlasOk "Проверка восстановления завершена; файлы не изменялись."
         exit 0
     }
@@ -144,6 +197,18 @@ try {
         -Arguments @("clean", "-f", "-d") `
         -FailureMessage "Не удалось очистить неотслеживаемые файлы программы."
 
+    Write-AtlasStep "Сбрасываю подключённые библиотеки моделей."
+    $RemovedLinks = Remove-AtlasLibraryLinks
+    Write-AtlasOk "Удалено служебных ссылок/пустых каталогов Atlas Library: $RemovedLinks. Внешние модели не затронуты."
+
+    Write-AtlasStep "Удаляю виртуальное окружение для чистой переустановки."
+    if (Remove-AtlasVenv) {
+        Write-AtlasOk "venv удалён. При запуске Forge Atlas создаст его заново."
+    }
+    else {
+        Write-AtlasOk "venv уже отсутствует. При запуске Forge Atlas создаст его заново."
+    }
+
     $FinalStatus = @(& git status --short)
     if ($LASTEXITCODE -ne 0 -or $FinalStatus.Count -gt 0) {
         throw "После восстановления рабочая папка всё ещё содержит изменения."
@@ -161,6 +226,6 @@ catch {
     Write-Host ""
     Write-Host "[Forge Atlas] Ошибка восстановления:" -ForegroundColor Red
     Write-Host "[Forge Atlas] $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "[Forge Atlas] Модели и outputs не удалялись."
+    Write-Host "[Forge Atlas] Внешние модели и outputs не удалялись."
     exit 1
 }

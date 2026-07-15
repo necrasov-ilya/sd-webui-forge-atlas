@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
 from pathlib import Path
 
@@ -78,6 +79,47 @@ def _create_directory_link(source: Path, destination: Path) -> None:
         os.symlink(source, destination, target_is_directory=True)
 
 
+def _is_directory_link(path: Path) -> bool:
+    """Return True for symlinks and Windows junctions without following them."""
+    try:
+        attributes = getattr(os.lstat(path), "st_file_attributes", 0)
+    except OSError:
+        return path.is_symlink()
+    return path.is_symlink() or bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+
+
+def _link_points_to(path: Path, source: Path) -> bool:
+    try:
+        return os.path.samefile(path, source)
+    except OSError:
+        return False
+
+
+def _prepare_library_link(link: Path, source: Path) -> str:
+    """Classify an Atlas link and repair only a harmless empty placeholder directory."""
+    if not os.path.lexists(link):
+        return "create"
+    if _is_directory_link(link):
+        return "connected" if _link_points_to(link, source) else "conflict"
+    if link.is_dir():
+        try:
+            if not any(link.iterdir()):
+                link.rmdir()
+                return "create"
+        except OSError:
+            pass
+    return "conflict"
+
+
+def _refresh_model_choices() -> tuple[list[str], list[str]]:
+    from modules import sd_models, sd_vae
+    from modules_forge import main_entry
+
+    sd_models.list_models()
+    sd_vae.refresh_vae_list()
+    return main_entry.refresh_models()
+
+
 def connect_library(library_path: str) -> tuple[str, list[str], list[str]]:
     """Link conventional folders from an external model library without copying files."""
     if not library_path:
@@ -90,7 +132,7 @@ def connect_library(library_path: str) -> tuple[str, list[str], list[str]]:
     if library_root == atlas_models or atlas_models in library_root.parents:
         return "Выбери внешнюю папку с моделями, а не папку моделей самого Forge Atlas.", [], []
 
-    connected, skipped = [], []
+    connected, already_connected, conflicts = [], [], []
     counts: dict[str, int] = {}
     for target_name, source_names in LIBRARY_FOLDERS:
         source = _library_folder(library_root, source_names)
@@ -102,8 +144,12 @@ def connect_library(library_path: str) -> tuple[str, list[str], list[str]]:
         target = atlas_models / target_name
         target.mkdir(parents=True, exist_ok=True)
         link = target / LINK_NAME
-        if os.path.lexists(link):
-            skipped.append(target_name)
+        link_state = _prepare_library_link(link, source)
+        if link_state == "connected":
+            already_connected.append(target_name)
+            continue
+        if link_state == "conflict":
+            conflicts.append(target_name)
             continue
 
         try:
@@ -112,22 +158,41 @@ def connect_library(library_path: str) -> tuple[str, list[str], list[str]]:
         except Exception as error:
             return f"Не удалось подключить «{target_name}»: {error}", [], []
 
-    if not connected:
-        if skipped:
-            return "Эта библиотека уже подключена. Удалять или заменять существующие ссылки автоматически Atlas не будет.", [], []
+    if not connected and not already_connected:
+        if conflicts:
+            detail = ", ".join(conflicts)
+            return (
+                f"Не удалось подключить: служебный путь Atlas Library уже занят в папках {detail}. "
+                "Запусти Fix.bat, чтобы сбросить старые ссылки, и выбери библиотеку ещё раз.",
+                [],
+                [],
+            )
         return "В выбранной папке не найдены привычные каталоги моделей: Stable-diffusion, VAE, Lora, ESRGAN и другие.", [], []
 
-    from modules import sd_models, sd_vae
-    from modules_forge import main_entry
-
-    sd_models.list_models()
-    sd_vae.refresh_vae_list()
-    checkpoints, modules = main_entry.refresh_models()
-    detail = ", ".join(connected)
+    checkpoints, modules = _refresh_model_choices()
+    active = connected + already_connected
+    detail = ", ".join(active)
     report = " · ".join(f"{name}: {count}" for name, count in counts.items())
+    total_files = sum(counts.values())
+    if total_files == 0:
+        return (
+            f"Папки подключены: {detail}, но файлов моделей в них не найдено. "
+            "Проверь, что выбрана общая папка models, а модели лежат в её подпапках.",
+            checkpoints,
+            modules,
+        )
+    if not checkpoints:
+        return (
+            f"Папки подключены: {detail}. Найдено файлов: {report}, но checkpoint не найден. "
+            "Положи checkpoint в Stable-diffusion или выбери другую библиотеку.",
+            checkpoints,
+            modules,
+        )
+    conflict_note = f" Не заменены занятые пути: {', '.join(conflicts)}." if conflicts else ""
     return (
         f"Подключено без копирования: {detail}. Найдено файлов: {report}. "
-        "Отдельные VAE и text encoder могут отсутствовать — они часто встроены в checkpoint.",
+        "Отдельные VAE и text encoder могут отсутствовать — они часто встроены в checkpoint."
+        f"{conflict_note}",
         checkpoints,
         modules,
     )
